@@ -18,11 +18,11 @@
 # Begin settings
 # Get the Production API key/secret from https://developer.godaddy.com/keys/.
 # Ensure it's for "Production" as first time it's created for "Test".
-Key=<API production key>
-Secret=<API secret>
+Key="key"
+Secret="secret"
 
 # Domain to update.
-Domain=<domain name>
+Domain="domain"
 
 # Advanced settings - change only if you know what you're doing :-)
 # Record type, as seen in the DNS setup page, default A.
@@ -38,10 +38,6 @@ TTL=600
 # Writable path to last known Public IP record cached. Best to place in tmpfs.
 CachedIP=/tmp/current_ip
 
-# External URL to check for current Public IP, must contain only a single plain text IP.
-# Default http://api.ipify.org.
-CheckURL=http://api.ipify.org
-
 # Optional scripts/programs/commands to execute on successful update. Leave blank to disable.
 # This variable will be evaluated at runtime but will not be parsed for errors nor execution guaranteed.
 # Take note of the single quotes. If it's a script, ensure it's executable i.e. chmod 755 ./script.
@@ -53,6 +49,8 @@ SuccessExec=''
 # Take note of the single quotes. If it's a script, ensure it's executable i.e. chmod 755 ./script.
 # Example: FailedExec='/some/path/something-went-wrong.sh ${Update} && /some/path/email-script.sh ${PublicIP}'
 FailedExec=''
+
+PublicIP=`dig +short myip.opendns.com @resolver1.opendns.com`
 # End settings
 
 Curl=$(/usr/bin/which curl 2>/dev/null)
@@ -69,22 +67,13 @@ echo "Error: Requires 'Domain' value." && exit 1
 [ "${TTL}" -lt 600 ] && TTL=600
 ${Touch} ${CachedIP} 2>/dev/null
 [ $? -ne 0 ] && echo "Error: Can't write to ${CachedIP}." && exit 1
-[ -z "${CheckURL}" ] && CheckURL=http://api.ipify.org
-echo -n "Checking current 'Public IP' from '${CheckURL}'..."
-PublicIP=$(${Curl} -kLs ${CheckURL})
-if [ $? -eq 0 ] && [[ "${PublicIP}" =~ [0-9]{1,3}\.[0-9]{1,3} ]];then
-  echo "${PublicIP}!"
-else
-  echo "Fail! ${PublicIP}"
-  eval ${FailedExec}
-  exit 1
-fi
+echo "Public ip is ${PublicIP}!"
 if [ "$(cat ${CachedIP} 2>/dev/null)" != "${PublicIP}" ];then
   echo -n "Checking '${Domain}' IP records from 'GoDaddy'..."
   Check=$(${Curl} -kLsH"Authorization: sso-key ${Key}:${Secret}" \
   -H"Content-type: application/json" \
   https://api.godaddy.com/v1/domains/${Domain}/records/${Type}/${Name} \
-  2>/dev/null|jq -r '.[0].data'>/dev/null)
+  2>/dev/null | jq -r '.[0].data'>/dev/null)
   if [ $? -eq 0 ] && [ "${Check}" = "${PublicIP}" ];then
     echo -n ${Check}>${CachedIP}
     echo -e "unchanged!\nCurrent 'Public IP' matches 'GoDaddy' records. No update required!"
