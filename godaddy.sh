@@ -18,11 +18,11 @@
 # Begin settings
 # Get the Production API key/secret from https://developer.godaddy.com/keys/.
 # Ensure it's for "Production" as first time it's created for "Test".
-Key="key"
-Secret="secret"
+Key=""
+Secret=""
 
 # Domain to update.
-Domain="domain"
+Domain=""
 
 # Advanced settings - change only if you know what you're doing :-)
 # Record type, as seen in the DNS setup page, default A.
@@ -73,7 +73,8 @@ if [ "$(cat ${CachedIP} 2>/dev/null)" != "${PublicIP}" ];then
   Check=$(${Curl} -kLsH"Authorization: sso-key ${Key}:${Secret}" \
   -H"Content-type: application/json" \
   https://api.godaddy.com/v1/domains/${Domain}/records/${Type}/${Name} \
-  2>/dev/null | jq -r '.[0].data'>/dev/null)
+  2>/dev/null | grep -Eo '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' 2>/dev/null)
+  echo -e "\nRemote ip is $Check"
   if [ $? -eq 0 ] && [ "${Check}" = "${PublicIP}" ];then
     echo -n ${Check}>${CachedIP}
     echo -e "unchanged!\nCurrent 'Public IP' matches 'GoDaddy' records. No update required!"
